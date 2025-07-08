@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { X, Eye, Trash2 } from 'lucide-react';
+import { X, Eye, Trash2, Info } from 'lucide-react';
 
 // Định nghĩa các kiểu dữ liệu
 interface Transaction {
@@ -27,11 +26,12 @@ interface Subscription {
     _id?: string;
 }
 
+// *** SỬA LỖI: Thêm thuộc tính 'role' vào đây ***
 interface AppUser {
     _id: string;
     email: string;
     subscriptions: Subscription[];
-    role: string;
+    role: string; // Thuộc tính bị thiếu đã được thêm vào
 }
 
 interface StatsData {
@@ -45,92 +45,106 @@ interface StatsData {
 const PLAN_LIMITS: Record<string, number> = {
     'TRIAL': 1, 'LIVE1': 1, 'LIVE3': 3, 'LIVE5': 5, 'LIVE10': 10, 'LIVE20': 20,
     'LIVE30': 30, 'LIVE50': 50, 'LIVE100': 100, 'LIVE150': 150, 'LIVE200': 200,
+    'FREE': 0
 };
 
 export default function AdminPage() {
     const { user, appUser, loading } = useAuth();
     const router = useRouter();
+
     const [activeTab, setActiveTab] = useState('stats');
-    
-    const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
-    const [allUsers, setAllUsers] = useState<AppUser[]>([]);
-    const [stats, setStats] = useState<Partial<StatsData>>({});
+    const [stats, setStats] = useState<StatsData | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     
-    // State cho modal chi tiết user
-    const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+    // State cho modal chi tiết người dùng
     const [showUserDetail, setShowUserDetail] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
-    const fetchDataForAdmin = async () => {
+    const fetchDataForAdmin = useCallback(async () => {
         if (!user || appUser?.role !== 'admin') return;
         
         setIsLoadingData(true);
         try {
-            const body = JSON.stringify({ firebaseUid: user.uid });
-            const headers = { 'Content-Type': 'application/json' };
-
-            const [transRes, usersRes, statsRes] = await Promise.all([
-                fetch('http://localhost:4000/api/admin/pending-transactions', { method: 'POST', headers, body }),
-                fetch('http://localhost:4000/api/admin/users', { method: 'POST', headers, body }),
-                fetch('http://localhost:4000/api/admin/statistics', { method: 'POST', headers, body })
+            const [statsRes, transRes, usersRes] = await Promise.all([
+                fetch('http://localhost:4000/api/admin/statistics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebaseUid: user.uid }),
+                }),
+                fetch('http://localhost:4000/api/admin/pending-transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebaseUid: user.uid }),
+                }),
+                fetch('http://localhost:4000/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebaseUid: user.uid }),
+                }),
             ]);
 
-            if (transRes.ok) setPendingTransactions(await transRes.json());
-            if (usersRes.ok) setAllUsers(await usersRes.json());
-            if (statsRes.ok) setStats(await statsRes.json());
+            setStats(await statsRes.json());
+            setTransactions(await transRes.json());
+            setUsers(await usersRes.json());
 
         } catch (error) {
-            console.error("Lỗi khi tải dữ liệu admin:", error);
+            console.error("Lỗi khi lấy dữ liệu admin:", error);
         } finally {
             setIsLoadingData(false);
         }
-    };
+    }, [user, appUser]);
 
     useEffect(() => {
-        if (!loading && appUser?.role === 'admin') {
+        if (!loading && appUser) {
             fetchDataForAdmin();
         }
-    }, [loading, appUser]);
+    }, [loading, appUser, fetchDataForAdmin]);
 
     const handleApprove = async (transactionId: string) => {
-        if (!user || !confirm('Bạn chắc chắn muốn phê duyệt giao dịch này?')) return;
+        if (!user) return;
         try {
-            const response = await fetch(`http://localhost:4000/api/transactions/${transactionId}/approve`, {
+            const res = await fetch(`http://localhost:4000/api/transactions/${transactionId}/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ firebaseUid: user.uid })
+                body: JSON.stringify({ firebaseUid: user.uid }),
             });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message);
-            alert('Phê duyệt thành công!');
-            fetchDataForAdmin();
-        } catch (error: any) {
-            alert(`Lỗi khi phê duyệt: ${error.message}`);
+            if (res.ok) {
+                alert('Phê duyệt thành công!');
+                fetchDataForAdmin(); // Tải lại dữ liệu
+            } else {
+                const errorData = await res.json();
+                alert(`Lỗi: ${errorData.message}`);
+            }
+        } catch (error) {
+            alert('Lỗi server khi phê duyệt giao dịch.');
         }
     };
+    
+    const handleDeleteSubscription = async (userId: string, subIndex: number) => {
+        if (!user || !confirm('Bạn có chắc chắn muốn xóa gói này không? Hành động này không thể hoàn tác.')) return;
 
-    const handleDeleteSubscription = async (userId: string, subscriptionIndex: number) => {
-        if (!user || !confirm('Bạn chắc chắn muốn xóa gói này? Hành động này không thể hoàn tác!')) return;
         try {
-            const response = await fetch(`http://localhost:4000/api/admin/users/${userId}/subscriptions/${subscriptionIndex}`, {
+            const res = await fetch(`http://localhost:4000/api/admin/users/${userId}/subscriptions/${subIndex}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ firebaseUid: user.uid })
+                body: JSON.stringify({ firebaseUid: user.uid }),
             });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message);
-            alert('Đã xóa gói thành công!');
-            fetchDataForAdmin();
-            // Refresh selected user detail
-            if (selectedUser && selectedUser._id === userId) {
-                const updatedUser = allUsers.find(u => u._id === userId);
-                if (updatedUser) setSelectedUser(updatedUser);
+
+            if (res.ok) {
+                alert('Xóa gói thành công!');
+                fetchDataForAdmin(); // Tải lại dữ liệu
+                setShowUserDetail(false); // Đóng modal
+            } else {
+                const errorData = await res.json();
+                alert(`Lỗi: ${errorData.message}`);
             }
-        } catch (error: any) {
-            alert(`Lỗi khi xóa gói: ${error.message}`);
+        } catch (error) {
+            alert('Lỗi server khi xóa gói.');
         }
     };
-
+	
     if (loading) return <p className="p-8 text-center">Đang tải...</p>;
     if (!user || appUser?.role !== 'admin') {
         return (
