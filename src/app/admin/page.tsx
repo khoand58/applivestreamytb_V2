@@ -31,11 +31,14 @@ interface Subscription {
     _id?: string;
 }
 
-interface AppUser {
-    _id: string;
-    email: string;
-    subscriptions: Subscription[];
-    role: string;
+export interface AppUser {
+  _id: string;
+  email: string;
+  firebaseUid?: string;
+  subscriptions: Subscription[];
+  role: 'user' | 'admin';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface StatsData {

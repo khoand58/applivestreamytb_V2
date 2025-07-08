@@ -5,14 +5,14 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 // Kiểu dữ liệu cho người dùng trong DB của chúng ta
-interface AppUser {
+export interface AppUser {
   _id: string;
-  firebaseUid: string;
   email: string;
-  currentPlan: string;
-  planExpiresAt?: Date;
-  maxStreams: number;
-  role: string;
+  firebaseUid?: string;
+  subscriptions: Subscription[];
+  role: 'user' | 'admin';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // SỬA LỖI: Đổi tên 'firebaseUser' thành 'user' để nhất quán
