@@ -4,6 +4,14 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
+// Thêm interface Subscription
+export interface Subscription {
+  planId: string;
+  purchasedAt?: string;
+  expiresAt: string;
+  _id?: string;
+}
+
 // Kiểu dữ liệu cho người dùng trong DB của chúng ta
 export interface AppUser {
   _id: string;
@@ -36,10 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
   const syncAppUser = async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       try {
-        const response = await fetch('http://localhost:4000/api/auth/sync', {
+        const response = await fetch(`${API_URL}/api/auth/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: firebaseUser.email, uid: firebaseUser.uid }),
@@ -67,7 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const value = { user, appUser, loading, syncAppUser };
+  // Fix: Cập nhật syncAppUser trong value để có thể gọi từ component
+  const syncAppUserManually = () => {
+    if (user) {
+      syncAppUser(user);
+    }
+  };
+
+  const value = { 
+    user, 
+    appUser, 
+    loading, 
+    syncAppUser: syncAppUserManually 
+  };
 
   return (
     <AuthContext.Provider value={value}>
