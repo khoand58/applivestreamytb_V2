@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { X, Eye, Trash2, Info } from 'lucide-react';
+import { X, Eye, Trash2 } from 'lucide-react';
+
+// Ghi chú quan trọng: Trong môi trường production, bạn nên dùng biến môi trường
+// thay vì hardcode 'http://localhost:4000'.
+// Ví dụ: const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = 'http://localhost:4000';
 
 // Định nghĩa các kiểu dữ liệu
 interface Transaction {
@@ -26,12 +31,11 @@ interface Subscription {
     _id?: string;
 }
 
-// *** SỬA LỖI: Thêm thuộc tính 'role' vào đây ***
 interface AppUser {
     _id: string;
     email: string;
     subscriptions: Subscription[];
-    role: string; // Thuộc tính bị thiếu đã được thêm vào
+    role: string;
 }
 
 interface StatsData {
@@ -58,7 +62,6 @@ export default function AdminPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     
-    // State cho modal chi tiết người dùng
     const [showUserDetail, setShowUserDetail] = useState(false);
     const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
@@ -68,17 +71,17 @@ export default function AdminPage() {
         setIsLoadingData(true);
         try {
             const [statsRes, transRes, usersRes] = await Promise.all([
-                fetch('http://localhost:4000/api/admin/statistics', {
+                fetch(`${API_BASE_URL}/api/admin/statistics`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ firebaseUid: user.uid }),
                 }),
-                fetch('http://localhost:4000/api/admin/pending-transactions', {
+                fetch(`${API_BASE_URL}/api/admin/pending-transactions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ firebaseUid: user.uid }),
                 }),
-                fetch('http://localhost:4000/api/admin/users', {
+                fetch(`${API_BASE_URL}/api/admin/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ firebaseUid: user.uid }),
@@ -105,14 +108,14 @@ export default function AdminPage() {
     const handleApprove = async (transactionId: string) => {
         if (!user) return;
         try {
-            const res = await fetch(`http://localhost:4000/api/transactions/${transactionId}/approve`, {
+            const res = await fetch(`${API_BASE_URL}/api/transactions/${transactionId}/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ firebaseUid: user.uid }),
             });
             if (res.ok) {
                 alert('Phê duyệt thành công!');
-                fetchDataForAdmin(); // Tải lại dữ liệu
+                fetchDataForAdmin();
             } else {
                 const errorData = await res.json();
                 alert(`Lỗi: ${errorData.message}`);
@@ -126,7 +129,7 @@ export default function AdminPage() {
         if (!user || !confirm('Bạn có chắc chắn muốn xóa gói này không? Hành động này không thể hoàn tác.')) return;
 
         try {
-            const res = await fetch(`http://localhost:4000/api/admin/users/${userId}/subscriptions/${subIndex}`, {
+            const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/subscriptions/${subIndex}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ firebaseUid: user.uid }),
@@ -134,8 +137,8 @@ export default function AdminPage() {
 
             if (res.ok) {
                 alert('Xóa gói thành công!');
-                fetchDataForAdmin(); // Tải lại dữ liệu
-                setShowUserDetail(false); // Đóng modal
+                fetchDataForAdmin();
+                setShowUserDetail(false);
             } else {
                 const errorData = await res.json();
                 alert(`Lỗi: ${errorData.message}`);
@@ -155,11 +158,7 @@ export default function AdminPage() {
             </div>
         );
     }
-
-    const revenueChange = stats.revenueLastMonth! > 0 
-        ? ((stats.revenueThisMonth! - stats.revenueLastMonth!) / stats.revenueLastMonth!) * 100 
-        : stats.revenueThisMonth! > 0 ? 100 : 0;
-
+    
     // Modal chi tiết user
     const UserDetailModal = () => {
         if (!showUserDetail || !selectedUser) return null;
@@ -167,7 +166,6 @@ export default function AdminPage() {
         const now = new Date();
         const allSubs = selectedUser.subscriptions || [];
         const activeSubs = allSubs.filter(sub => new Date(sub.expiresAt) > now);
-        const expiredSubs = allSubs.filter(sub => new Date(sub.expiresAt) <= now);
 
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -180,62 +178,32 @@ export default function AdminPage() {
                     </div>
 
                     <div className="space-y-6">
-                        {/* Thông tin tổng quan */}
                         <div className="bg-[#23233c] p-4 rounded-lg">
                             <h3 className="text-lg font-semibold mb-2">Thông tin tổng quan</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <span className="text-gray-400">Email:</span>
-                                    <span className="ml-2">{selectedUser.email}</span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-400">Role:</span>
-                                    <span className="ml-2">{selectedUser.role}</span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-400">Tổng gói đã mua:</span>
-                                    <span className="ml-2">{allSubs.length}</span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-400">Gói đang hoạt động:</span>
-                                    <span className="ml-2 text-green-400">{activeSubs.length}</span>
-                                </div>
+                                <div><span className="text-gray-400">Email:</span><span className="ml-2">{selectedUser.email}</span></div>
+                                <div><span className="text-gray-400">Role:</span><span className="ml-2">{selectedUser.role}</span></div>
+                                <div><span className="text-gray-400">Tổng gói đã mua:</span><span className="ml-2">{allSubs.length}</span></div>
+                                <div><span className="text-gray-400">Gói đang hoạt động:</span><span className="ml-2 text-green-400">{activeSubs.length}</span></div>
                             </div>
                         </div>
 
-                        {/* Danh sách tất cả các gói */}
                         <div className="bg-[#23233c] p-4 rounded-lg">
                             <h3 className="text-lg font-semibold mb-4">Tất cả các gói ({allSubs.length})</h3>
                             <div className="space-y-3">
-                                {allSubs.length === 0 ? (
-                                    <p className="text-gray-400">Chưa mua gói nào</p>
-                                ) : (
+                                {allSubs.length === 0 ? <p className="text-gray-400">Chưa mua gói nào</p> : (
                                     allSubs.map((sub, index) => {
                                         const isExpired = new Date(sub.expiresAt) <= now;
-                                        const purchaseDate = sub.purchasedAt 
-                                            ? new Date(sub.purchasedAt).toLocaleDateString('vi-VN')
-                                            : 'N/A';
-                                        const expireDate = sub.expiresAt
-                                            ? new Date(sub.expiresAt).toLocaleDateString('vi-VN')
-                                            : 'N/A';
-
                                         return (
                                             <div key={index} className={`flex items-center justify-between p-3 rounded-lg ${isExpired ? 'bg-gray-800' : 'bg-gray-700'}`}>
                                                 <div className="flex-1">
-                                                    <span className={`font-semibold ${isExpired ? 'text-gray-500 line-through' : 'text-violet-400'}`}>
-                                                        {sub.planId || 'Unknown'}
-                                                    </span>
+                                                    <span className={`font-semibold ${isExpired ? 'text-gray-500 line-through' : 'text-violet-400'}`}>{sub.planId || 'Unknown'}</span>
                                                     <span className="text-sm text-gray-400 ml-3">
-                                                        {purchaseDate} → {expireDate}
+                                                        {sub.purchasedAt ? new Date(sub.purchasedAt).toLocaleDateString('vi-VN') : 'N/A'} → {sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString('vi-VN') : 'N/A'}
                                                     </span>
-                                                    {isExpired && <span className="text-red-400 ml-2 text-sm">(Hết hạn)</span>}
-                                                    {!isExpired && <span className="text-green-400 ml-2 text-sm">(Còn hạn)</span>}
+                                                    {isExpired ? <span className="text-red-400 ml-2 text-sm">(Hết hạn)</span> : <span className="text-green-400 ml-2 text-sm">(Còn hạn)</span>}
                                                 </div>
-                                                <button
-                                                    onClick={() => handleDeleteSubscription(selectedUser._id, index)}
-                                                    className="ml-4 p-2 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition"
-                                                    title="Xóa gói này"
-                                                >
+                                                <button onClick={() => handleDeleteSubscription(selectedUser._id, index)} className="ml-4 p-2 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition" title="Xóa gói này">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
@@ -245,17 +213,12 @@ export default function AdminPage() {
                             </div>
                         </div>
 
-                        {/* Tổng số luồng hiện tại */}
                         <div className="bg-[#23233c] p-4 rounded-lg">
                             <h3 className="text-lg font-semibold mb-2">Tổng số luồng hiện tại</h3>
                             <div className="text-3xl font-bold text-green-400">
                                 {activeSubs.reduce((total, sub) => total + (PLAN_LIMITS[sub.planId] || 0), 0)}
                             </div>
-                            {activeSubs.length > 0 && (
-                                <div className="text-sm text-gray-500 mt-2">
-                                    = {activeSubs.map(sub => `${sub.planId}(${PLAN_LIMITS[sub.planId] || 0})`).join(' + ')}
-                                </div>
-                            )}
+                            {activeSubs.length > 0 && <div className="text-sm text-gray-500 mt-2">= {activeSubs.map(sub => `${sub.planId}(${PLAN_LIMITS[sub.planId] || 0})`).join(' + ')}</div>}
                         </div>
                     </div>
                 </div>
@@ -268,13 +231,15 @@ export default function AdminPage() {
             <h1 className="mb-8 text-3xl font-bold">Trang Quản trị</h1>
             <div className="mb-6 flex border-b border-gray-700">
                 <button onClick={() => setActiveTab('stats')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'stats' ? 'border-b-2 border-violet-500 text-white' : 'text-gray-400 hover:text-white'}`}>Thống kê</button>
-                <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'transactions' ? 'border-b-2 border-violet-500 text-white' : 'text-gray-400 hover:text-white'}`}>Giao dịch chờ duyệt ({pendingTransactions.length})</button>
-                <button onClick={() => setActiveTab('users')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'users' ? 'border-b-2 border-violet-500 text-white' : 'text-gray-400 hover:text-white'}`}>Quản lý người dùng ({allUsers.length})</button>
+                {/* FIX 2: Đổi `pendingTransactions` thành `transactions` */}
+                <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'transactions' ? 'border-b-2 border-violet-500 text-white' : 'text-gray-400 hover:text-white'}`}>Giao dịch chờ duyệt ({transactions.length})</button>
+                {/* FIX 2: Đổi `allUsers` thành `users` */}
+                <button onClick={() => setActiveTab('users')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'users' ? 'border-b-2 border-violet-500 text-white' : 'text-gray-400 hover:text-white'}`}>Quản lý người dùng ({users.length})</button>
             </div>
 
             {isLoadingData ? <p>Đang tải dữ liệu...</p> : (
                 <>
-                    {activeTab === 'stats' && (
+                    {activeTab === 'stats' && stats && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                            <div className="bg-[#23233c] p-6 rounded-lg">
                                 <h3 className="text-gray-400 text-sm font-medium">Tổng doanh thu</h3>
@@ -283,9 +248,17 @@ export default function AdminPage() {
                            <div className="bg-[#23233c] p-6 rounded-lg">
                                 <h3 className="text-gray-400 text-sm font-medium">Doanh thu tháng này</h3>
                                 <p className="text-3xl font-bold text-white mt-2">{stats.revenueThisMonth?.toLocaleString('vi-VN')}đ</p>
-                                <p className={`text-sm ${revenueChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {revenueChange >= 0 ? '▲' : '▼'} {Math.abs(revenueChange).toFixed(1)}% so với tháng trước
-                                </p>
+                                {/* FIX 1: Di chuyển logic tính toán vào đây để đảm bảo `stats` không phải là null */}
+                                {(() => {
+                                    const revenueChange = stats.revenueLastMonth > 0 
+                                        ? ((stats.revenueThisMonth - stats.revenueLastMonth) / stats.revenueLastMonth) * 100 
+                                        : stats.revenueThisMonth > 0 ? 100 : 0;
+                                    return (
+                                        <p className={`text-sm ${revenueChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {revenueChange >= 0 ? '▲' : '▼'} {Math.abs(revenueChange).toFixed(1)}% so với tháng trước
+                                        </p>
+                                    );
+                                })()}
                            </div>
                             <div className="bg-[#23233c] p-6 rounded-lg">
                                 <h3 className="text-gray-400 text-sm font-medium">Tổng số người dùng</h3>
@@ -304,19 +277,16 @@ export default function AdminPage() {
                                 <table className="min-w-full text-left text-sm">
                                     <thead className="border-b border-gray-600 text-xs uppercase text-gray-400">
                                         <tr>
-                                            <th className="px-6 py-3">Người dùng</th>
-                                            <th className="px-6 py-3">Nội dung CK</th>
-                                            <th className="px-6 py-3">Gói</th>
-                                            <th className="px-6 py-3">Số tiền</th>
-                                            <th className="px-6 py-3">Ngày tạo</th>
-                                            <th className="px-6 py-3">Hành động</th>
+                                            <th className="px-6 py-3">Người dùng</th><th className="px-6 py-3">Nội dung CK</th><th className="px-6 py-3">Gói</th>
+                                            <th className="px-6 py-3">Số tiền</th><th className="px-6 py-3">Ngày tạo</th><th className="px-6 py-3">Hành động</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {pendingTransactions.length === 0 ? (
+                                        {/* FIX 2: Đổi `pendingTransactions` thành `transactions` */}
+                                        {transactions.length === 0 ? (
                                             <tr><td colSpan={6} className="p-8 text-center text-gray-400">Không có giao dịch nào đang chờ.</td></tr>
                                         ) : (
-                                            pendingTransactions.map((tx) => (
+                                            transactions.map((tx) => (
                                                 <tr key={tx._id} className="border-b border-gray-700 hover:bg-gray-800">
                                                     <td className="px-6 py-4">{tx.userId?.email || 'N/A'}</td>
                                                     <td className="px-6 py-4 font-mono text-yellow-300">{tx.transactionCode}</td>
@@ -341,14 +311,13 @@ export default function AdminPage() {
                                 <table className="min-w-full text-left text-sm">
                                      <thead className="border-b border-gray-600 text-xs uppercase text-gray-400">
                                         <tr>
-                                            <th className="px-6 py-3">Email</th>
-                                            <th className="px-6 py-3">Gói đang hoạt động</th>
-                                            <th className="px-6 py-3">Tổng luồng hiện tại</th>
-                                            <th className="px-6 py-3">Hành động</th>
+                                            <th className="px-6 py-3">Email</th><th className="px-6 py-3">Gói đang hoạt động</th>
+                                            <th className="px-6 py-3">Tổng luồng hiện tại</th><th className="px-6 py-3">Hành động</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {allUsers.map((u) => {
+                                        {/* FIX 2: Đổi `allUsers` thành `users` */}
+                                        {users.map((u) => {
                                             const now = new Date();
                                             const activeSubs = (u.subscriptions || []).filter(sub => new Date(sub.expiresAt) > now);
                                             const totalStreams = activeSubs.reduce((total, sub) => total + (PLAN_LIMITS[sub.planId] || 0), 0);
@@ -356,44 +325,19 @@ export default function AdminPage() {
                                             return (
                                                 <tr key={u._id} className="border-b border-gray-700 hover:bg-gray-800">
                                                     <td className="px-6 py-4 font-medium">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedUser(u);
-                                                                setShowUserDetail(true);
-                                                            }}
-                                                            className="hover:text-violet-400 transition cursor-pointer"
-                                                        >
-                                                            {u.email}
-                                                        </button>
+                                                        <button onClick={() => { setSelectedUser(u); setShowUserDetail(true); }} className="hover:text-violet-400 transition cursor-pointer">{u.email}</button>
                                                         {u.role === 'admin' && <span className="text-xs text-yellow-400 ml-1">(Admin)</span>}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         {activeSubs.length > 0 ? (
                                                             <div className="flex flex-wrap gap-2">
-                                                                {activeSubs.map((sub, i) => (
-                                                                    <span key={i} className="inline-block bg-violet-600 text-white text-xs px-2 py-1 rounded">
-                                                                        {sub.planId}
-                                                                    </span>
-                                                                ))}
+                                                                {activeSubs.map((sub, i) => <span key={i} className="inline-block bg-violet-600 text-white text-xs px-2 py-1 rounded">{sub.planId}</span>)}
                                                             </div>
-                                                        ) : (
-                                                            <span className="text-gray-400">Không có</span>
-                                                        )}
+                                                        ) : <span className="text-gray-400">Không có</span>}
                                                     </td>
+                                                    <td className="px-6 py-4"><span className="font-bold text-2xl text-green-400">{totalStreams}</span></td>
                                                     <td className="px-6 py-4">
-                                                        <span className="font-bold text-2xl text-green-400">{totalStreams}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedUser(u);
-                                                                setShowUserDetail(true);
-                                                            }}
-                                                            className="text-blue-400 hover:text-blue-300 transition"
-                                                            title="Xem chi tiết"
-                                                        >
-                                                            <Eye size={18} />
-                                                        </button>
+                                                        <button onClick={() => { setSelectedUser(u); setShowUserDetail(true); }} className="text-blue-400 hover:text-blue-300 transition" title="Xem chi tiết"><Eye size={18} /></button>
                                                     </td>
                                                 </tr>
                                             );
@@ -406,7 +350,6 @@ export default function AdminPage() {
                 </>
             )}
             
-            {/* Modal chi tiết user */}
             <UserDetailModal />
         </div>
     );
