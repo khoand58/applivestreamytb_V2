@@ -12,6 +12,7 @@ interface AppUser {
   currentPlan: string;
   planExpiresAt?: Date;
   maxStreams: number;
+  role: string;
 }
 
 // SỬA LỖI: Đổi tên 'firebaseUser' thành 'user' để nhất quán
