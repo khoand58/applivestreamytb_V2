@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #1a1a2e; /* Một màu nền tối tương tự ảnh mẫu */
+  color: white;
+}
