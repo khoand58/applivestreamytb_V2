@@ -99,7 +99,7 @@ export default function HomePage() {
       </div>
 
       {/* Banner đếm ngược thời gian dùng thử */}
-      {trialSubscription && timeRemaining.total > 0 && (
+      {trialSubscription && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
           <div className="flex items-center gap-3">
             <Clock className="h-8 w-8 text-yellow-400 flex-shrink-0" />
