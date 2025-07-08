@@ -56,7 +56,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       // Đồng bộ lại thông tin user để đảm bảo dữ liệu mới nhất
-      syncAppUser(user);
+      syncAppUser();
       fetchMyTransactions(user.uid);
     }
   }, [user]);
