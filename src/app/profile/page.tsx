@@ -27,6 +27,7 @@ const PLAN_LIMITS: Record<string, number> = {
     'LIVE30': 30, 'LIVE50': 50, 'LIVE100': 100, 'LIVE150': 150, 'LIVE200': 200,
     'FREE': 0
 };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function ProfilePage() {
   const { user, appUser, loading, syncAppUser } = useAuth();
@@ -39,7 +40,7 @@ export default function ProfilePage() {
   // Hàm lấy lịch sử giao dịch
   const fetchMyTransactions = async (uid: string) => {
     try {
-        const response = await fetch('http://localhost:4000/api/my-transactions', {
+        const response = await fetch(`${API_URL}/api/my-transactions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ firebaseUid: uid })

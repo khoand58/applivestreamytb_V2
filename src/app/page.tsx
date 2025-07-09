@@ -28,6 +28,7 @@ function getTimeRemaining(endtime: string) {
     seconds
   };
 }
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function HomePage() {
   const { user, appUser, loading } = useAuth();
@@ -49,7 +50,7 @@ export default function HomePage() {
       const fetchActiveCount = async () => {
         try {
           // Gọi API /api/my-streams bằng phương thức POST
-          const response = await fetch(`http://localhost:4000/api/my-streams`, {
+          const response = await fetch(`${API_URL}/api/my-streams`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ firebaseUid: user.uid })

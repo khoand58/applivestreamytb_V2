@@ -12,6 +12,7 @@ interface Stream {
   createdAt: string;
   scheduledAt?: string;
 }
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function LivePage() {
   const [streamName, setStreamName] = useState('');
@@ -30,7 +31,7 @@ export default function LivePage() {
   const fetchStreams = async () => {
     if (!user) return;
     try {
-      const response = await fetch('http://localhost:4000/api/my-streams', {
+      const response = await fetch(`${API_URL}/api/my-streams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firebaseUid: user.uid }),
@@ -78,7 +79,7 @@ export default function LivePage() {
     };
 
     try {
-      const response = await fetch('http://localhost:4000/api/start-stream', {
+      const response = await fetch(`${API_URL}/api/start-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(streamData),
@@ -116,21 +117,21 @@ export default function LivePage() {
   };
 
   // Các hàm xử lý hành động
-  const handleStartNow = (jobId: string) => createApiRequest(`http://localhost:4000/api/streams/${jobId}/start-now`, 'POST');
+  const handleStartNow = (jobId: string) => createApiRequest(`${API_URL}/api/streams/${jobId}/start-now`, 'POST');
   const handleStopStream = (jobId: string) => {
     if (confirm('Bạn có chắc chắn muốn dừng luồng live này?')) {
-      createApiRequest(`http://localhost:4000/api/streams/${jobId}/stop`, 'POST');
+      createApiRequest(`${API_URL}/api/streams/${jobId}/stop`, 'POST');
     }
   };
   const handleDeleteStream = (jobId: string) => {
     if (confirm('Hành động này sẽ xóa vĩnh viễn! Bạn có chắc không?')) {
-      createApiRequest(`http://localhost:4000/api/streams/${jobId}`, 'DELETE');
+      createApiRequest(`${API_URL}/api/streams/${jobId}`, 'DELETE');
     }
   };
   const handleEditStream = (jobId: string, currentName: string) => {
     const newName = prompt("Nhập tên mới cho luồng live:", currentName);
     if (newName && newName.trim() && newName !== currentName) {
-      createApiRequest(`http://localhost:4000/api/streams/${jobId}`, 'PUT', { name: newName });
+      createApiRequest(`${API_URL}/api/streams/${jobId}`, 'PUT', { name: newName });
     }
   };
 
